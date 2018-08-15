@@ -1,0 +1,207 @@
+import math
+import sys
+import numpy as np
+print("############################################################################")
+print("#                                                                          #")
+print("#                                                                          #")
+print("#                     welcome to the Dislocation simulator!                #")
+print("#                                                                          #")
+print("#                                                                          #")
+print("############################################################################")
+print("")
+print("")
+name1=str(input("please provide the name of the input file "))
+print("")
+print("")
+name2=str(input("please provide the name of the dump file "))
+print("")
+print("")
+number1=int(input("How many  dislocation core do you want in one set? "))
+print("")
+print("")
+cycle=int(input("How many sets of dislocation core do you want? "))
+print("")
+print("")
+#####################################################################################read input file
+def errorcheck(z):
+    try:
+        float(z)
+    except ValueError:
+        print("one of your parameters is not a number ")
+        sys.exit()
+
+
+
+parameter=open(name1,"r+")
+para=parameter.readlines()
+print("The parameters are:")
+print("lattice constant in Angstrom:"+para[1])
+print("Poisson's ratio:"+para[3])
+print("lattice type:"+para[5])
+print("character angle in degree:"+para[7])
+print("postion of the dislocation core in Angstrom:"+para[9])
+errorcheck(para[1])
+errorcheck(para[3])
+errorcheck(para[7])
+
+a0=float(para[1])
+nu=float(para[3])
+theta=float(para[7])*np.pi/180
+
+
+coordinates=np.zeros(number1*3)
+cnochange=np.zeros(number1*3)
+o=para[9]
+o=o.split(",")
+for i in range(number1*3):
+    coordinates[i]=o[i]
+
+
+    cnochange[i]=o[i]
+
+
+
+
+
+typ3=str(para[5])
+if typ3 == 'bcc\n':
+    b =a0*(3**0.5)/2
+elif typ3 == 'fcc\n':
+    b =a0/(2**0.5)
+else:
+    print("Your lattice type is not readable, it can only be either fcc or bcc")
+    sys.exit("")
+print("the burger vectors magnitude is :"+str(b))
+################################################################################################read dump file
+c=open(name2,"r+")
+
+k=c.readlines()
+#################################################################################################the calculation part
+i=9
+
+zbound=k[7].split()
+ybound=k[6].split()
+xbound=k[5].split()
+
+
+def bounddigit(zbound):
+    zboundlow=float(zbound[0])
+
+    zboundhigh=float(zbound[1])
+    return zboundlow,zboundhigh
+zzz1,zzz2=bounddigit(zbound)
+yyy1,yyy2=bounddigit(ybound)
+xxx1,xxx2=bounddigit(xbound)
+
+
+def methodp(zz,zzz1,zzz2):
+    if zz > zzz2:
+        zz=zz-(zzz2-zzz1)
+    if zz < zzz1:
+        zz=zz+(zzz2-zzz1)
+    return zz
+
+
+def methods(w):
+    boundarray=([])
+    i=9
+    while True:
+        try:
+            alist=k[i]
+            gl=alist.split()
+            boundlist=float(gl[w])
+            boundarray.append(boundlist)
+            i=i+1
+        except IndexError:
+            break
+
+    maximum=max(boundarray)+0.00001
+    minimum=min(boundarray)-0.00001
+    newbound=k[w+3]
+    newbound=newbound.split()
+    newbound[0]=str(minimum)
+    newbound[1]=str(maximum)+"\n"
+    k[w+3]=" ".join(newbound)
+
+    return boundarray
+
+print("")
+print("")
+print("")
+print("")
+print("-----------------------------------------------")
+print("-----------------------------------------------")
+def fieldu(x0,y0,z0,n,xpoint,ypoint):
+    x=xpoint-x0
+    y=ypoint-y0
+    be=b*math.sin(theta+np.pi*n)
+    bs=b*math.cos(theta+np.pi*n)
+    ux1=(be/(2*np.pi))*(math.atan2(y,x)+(x*y)/(2*(1-nu)*(x**2+y**2)))
+    uy1=-(be/(2*np.pi))*(((1-2*nu)/(4*(1-nu)))*math.log(x**2 + y**2)+(x**2 - y**2)/(4*(1-nu)*(x**2 +y**2)))
+    uz1=(bs/(2*np.pi))*math.atan2(y,x)
+    return ux1,uy1,uz1
+
+
+################################################################################################################
+uu1,uu2,uy1,uu2,uz1,uz2,uux,uuy,uuz=0,0,0,0,0,0,0,0,0
+cy=1
+i=9
+while True:
+    try:
+
+        a=k[i]
+        a1=a.split()
+
+        uuu1=0
+        uuu2=0
+        uuu3=0
+        xpoint=float(a1[2])
+        ypoint=float(a1[3])
+        zpoint=float(a1[4])
+        for H in range(cycle):
+            for j in range(number1):
+
+                a=j
+                cox=coordinates[a*3]
+                coy=coordinates[a*3+1]
+                
+                coz=coordinates[a*3+2]
+            
+
+                uu1,uu2,uu3=fieldu(cox,coy,coz,a,xpoint,ypoint)
+
+                a1[2]=float(a1[2])+uu1
+                a1[3]=float(a1[3])+uu2
+                a1[4]=float(a1[4])+uu3
+
+                coordinates[a*3+1]=coordinates[a*3+1]+(25.0454545)
+                
+        
+        coordinates[1]=cnochange[1]
+        coordinates[4]=cnochange[4]
+                
+        xx=a1[2]
+        yy=a1[3]
+        zz=a1[4]
+        a1[2]=str(methodp(xx,xxx1,xxx2))      
+        a1[3]=str(yy)
+        a1[4]=str(methodp(zz,zzz1,zzz2))
+        
+        a1.append("\n")
+        k[i]=" ".join(a1)
+        i=i+1
+    except IndexError:
+            print(i)
+            break
+methods(2)
+
+print("")
+print("")
+print("")
+print("")
+print("The simulation is completed.")
+c.close()
+d=open("dump.8.71111111.0","w")
+d.write("".join(k))
+d.close()
+
